@@ -1,0 +1,24 @@
+name: Sync upstream
+
+# Fork-only: pull Noamm9/NoammAddons multiversion into this fork once a day.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.repository != 'Noamm9/NoammAddons'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Merge upstream multiversion
+        env:
+          # Optional PAT with `workflow` scope; needed only when upstream changes .github/workflows.
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/merge-upstream" \
+            -f branch=multiversion \
+            --jq '"\(.merge_type): \(.message)"'
