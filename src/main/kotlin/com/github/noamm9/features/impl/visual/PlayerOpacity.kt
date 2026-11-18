@@ -1,13 +1,16 @@
 package com.github.noamm9.features.impl.visual
 
+import com.github.noamm9.config.types.ColorSetting
 import com.github.noamm9.config.types.SliderSetting
 import com.github.noamm9.config.types.ToggleSetting
+import com.github.noamm9.event.impl.CheckEntityGlowEvent
 import com.github.noamm9.event.impl.CheckEntityRenderEvent
 import com.github.noamm9.features.Feature
 import com.github.noamm9.utils.location.LocationUtils
 import com.github.noamm9.utils.PartyUtils
 import net.minecraft.client.player.AbstractClientPlayer
 import net.minecraft.world.entity.Entity
+import java.awt.Color
 
 /**
  * @see com.github.noamm9.mixin.MixinEntityRenderer
@@ -19,6 +22,10 @@ import net.minecraft.world.entity.Entity
 object PlayerOpacity: Feature("Makes nearby players transparent so they don't block your view.") {
     private val dungeonOnly by ToggleSetting("Dungeons only").withDescription("Only enables this feature inside dungeons.")
     private val excludeParty by ToggleSetting("Exclude party").withDescription("Excludes party members from being hidden.")
+
+    private val highlightParty by ToggleSetting("Higlight party").withDescription("Make outline around party members.")
+    private val outlineColor by ColorSetting("Highlight color", Color(0, 0, 255, 0)).showIf{ highlightParty.value }
+
     private val distance by SliderSetting("Distance", 3, 1, 32, 1).withDescription("How close a player has to be to become transparent.")
     private val opacity by SliderSetting("Opacity", 30, 0, 100, 1, "%").withDescription("0% hides them completely.")
 
@@ -31,6 +38,15 @@ object PlayerOpacity: Feature("Makes nearby players transparent so they don't bl
             if (opacity.value != 0) return@register
             if (! isNearby(event.entity)) return@register
             event.isCanceled = true
+        }
+        register<CheckEntityGlowEvent> {
+            if (! highlightParty.value) return@register
+            if (event.entity !is AbstractClientPlayer) return@register
+            if (event.entity.uuid.version() != 4) return@register
+            if (event.entity == player) return@register
+            if (! PartyUtils.isMember(event.entity.gameProfile.name)) return@register
+
+            event.color = outlineColor.value
         }
     }
 
