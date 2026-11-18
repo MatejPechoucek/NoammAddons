@@ -1,6 +1,7 @@
 name: Sync upstream
 
 # Fork-only: pull Noamm9/NoammAddons multiversion into this fork once a day.
+# Files listed in KEEP_OURS are never overwritten by upstream.
 on:
   schedule:
     - cron: "0 4 * * *"
@@ -13,12 +14,41 @@ jobs:
   sync:
     if: github.repository != 'Noamm9/NoammAddons'
     runs-on: ubuntu-24.04
+    env:
+      KEEP_OURS: AGENTS.md
     steps:
-      - name: Merge upstream multiversion
-        env:
+      - uses: actions/checkout@v4
+        with:
+          ref: multiversion
+          fetch-depth: 0
           # Optional PAT with `workflow` scope; needed only when upstream changes .github/workflows.
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Merge upstream multiversion
         run: |
-          gh api -X POST "repos/${{ github.repository }}/merge-upstream" \
-            -f branch=multiversion \
-            --jq '"\(.merge_type): \(.message)"'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/Noamm9/NoammAddons.git
+          git fetch upstream multiversion
+
+          if git merge-base --is-ancestor upstream/multiversion HEAD; then
+            echo "none: already up to date"
+            exit 0
+          fi
+
+          # Merge without committing so fork-only files can be restored first.
+          # Conflicts only in KEEP_OURS files are resolved to the fork's version.
+          git merge --no-ff --no-commit upstream/multiversion || true
+          for f in $KEEP_OURS; do
+            git checkout HEAD -- "$f"
+          done
+
+          if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+            echo "Merge conflicts need manual resolution:"
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+
+          git commit -m "Merge branch 'Noamm9:multiversion' into multiversion"
+          git push origin multiversion
+          echo "merge: synced with upstream, kept $KEEP_OURS"
