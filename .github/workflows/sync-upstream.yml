@@ -2,9 +2,13 @@ name: Sync upstream
 
 # Fork-only: pull Noamm9/NoammAddons multiversion into this fork once a day.
 # Files listed in KEEP_OURS are never overwritten by upstream.
+# Runs at 08:00 Europe/London all year. GitHub cron is UTC-only, so both
+# 07:00 UTC (BST) and 08:00 UTC (GMT) are scheduled and the job skips the
+# one that does not match London's current offset.
 on:
   schedule:
-    - cron: "0 4 * * *"
+    - cron: "0 7 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch:
 
 permissions:
@@ -25,7 +29,18 @@ jobs:
           token: ${{ secrets.SYNC_TOKEN || github.token }}
 
       - name: Merge upstream multiversion
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
+          if [ -n "$SCHEDULE" ]; then
+            offset=$(TZ=Europe/London date +%z)
+            if { [ "$SCHEDULE" = "0 7 * * *" ] && [ "$offset" != "+0100" ]; } ||
+               { [ "$SCHEDULE" = "0 8 * * *" ] && [ "$offset" != "+0000" ]; }; then
+              echo "skip: not 08:00 in London (offset $offset)"
+              exit 0
+            fi
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/Noamm9/NoammAddons.git
