@@ -7,8 +7,9 @@ name: Sync upstream
 # one that does not match London's current offset.
 on:
   schedule:
-    - cron: "0 7 * * *"
-    - cron: "0 8 * * *"
+    - cron: "23 7 * * *"
+    - cron: "23 8 * * *"
+    - cron: "29 9 19 11 *" # TEMP: one-off schedule test, remove after
   workflow_dispatch:
 
 permissions:
@@ -34,8 +35,8 @@ jobs:
         run: |
           if [ -n "$SCHEDULE" ]; then
             offset=$(TZ=Europe/London date +%z)
-            if { [ "$SCHEDULE" = "0 7 * * *" ] && [ "$offset" != "+0100" ]; } ||
-               { [ "$SCHEDULE" = "0 8 * * *" ] && [ "$offset" != "+0000" ]; }; then
+            if { [ "$SCHEDULE" = "23 7 * * *" ] && [ "$offset" != "+0100" ]; } ||
+               { [ "$SCHEDULE" = "23 8 * * *" ] && [ "$offset" != "+0000" ]; }; then
               echo "skip: not 08:00 in London (offset $offset)"
               exit 0
             fi
